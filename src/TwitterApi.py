@@ -1,10 +1,64 @@
-# Steps for jchen to use envfile
-# 1. download envfile extension from the pycharm plugins section
-# 2. put the actual .env file in your pycharm but ENSURE you do not committ it at all. Add it to gitignore asap
-# 3. import the setup.py file whenever you need stuff from the env file. Make sure you take a look at it first.
-# 4. Go to Run -> Edit Configurations -> Enable EnvFile -> The Plus Button in the box and add the env file
-# !!! You MUST do step 4 for EVERY file you use the info in, this means it needs to be done in both setup.py AND this file.
+# There's a chance that the hardcoded bearer token in setup.py can change.
+# In which case we need to code some lines to get the bearer token based on the API keys
+# look fat the oauth2 pages on twitter api webpages
 
+import requests
 import setup
+import os
+import json
+from twitter import api
+import tweepy
+from tweepy import Stream
+from tweepy import OAuthHandler
 
-print(setup.twitterApiKey) #this is a test to see if rits working
+class MyStreamListener(tweepy.StreamListener):
+    def on_data(self, data):
+        print(data)
+        return True
+    def on_error(self, status):
+        print(status)
+
+
+listener = MyStreamListener()
+auth = OAuthHandler(setup.twitterApiKey, setup.twitterSecretKey)
+auth.set_access_token(setup.twitterAccessToken, setup.twitterAccessSecret)
+stream = Stream(auth, listener)
+stream.filter(track=["Walgreens -is:retweet"])
+
+def search():
+    #authorization for the twitterapi endpoint
+    headers = {
+        "Authorization": "Bearer " + setup.twitterBearerToken
+    }
+    #these are the parameters for search/stream
+    payload = {
+        "query" : "Walgreens -is:retweet"
+    }
+    r = requests.get("https://api.twitter.com/2/tweets/search/recent", params=payload, headers=headers)
+    print(r.json())
+
+def stream():
+    # authorization for the twitterapi endpoint
+    headers = {
+        "Authorization": "Bearer " + setup.twitterBearerToken
+    }
+    #This creates a filtered stream based on the Key word Walgreens
+    data = {
+        "add": [{"value": "Walgreens -is:retweet", "tag": "Walgreen tweets"}]
+    }
+    param = {
+        "tweet.fields": "created_at"
+    }
+    tempheader = {
+        "Content-type": "application/json",
+        "Authorization": "Bearer " + setup.twitterBearerToken
+    }
+    # requests.get("https://api.twitter.com/1.1/application/rate_limit_status.json?resources=help,users,search,statuses", data=data, headers=headers)
+    r = requests.get("https://api.twitter.com/2/tweets/search/stream", headers=headers)
+    requests.post("https://api.twitter.com/2/tweets/search/stream/rules", stream=True, data=data, headers=tempheader)
+    x = requests.get("https://api.twitter.com/2/tweets/search/stream/rules", stream=True, headers=headers)
+    print("test")
+    print(x.json())
+
+
+
